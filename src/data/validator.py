@@ -4,8 +4,8 @@ Data validation module
 import pandas as pd
 from pathlib import Path
 from typing import Tuple, Optional
-from ..core.exceptions import ValidationError
-from ..core.logger import get_logger
+from core.exceptions import ValidationError
+from core.logger import get_logger
 
 
 class DataValidator:

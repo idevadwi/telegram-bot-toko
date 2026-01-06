@@ -6,8 +6,8 @@ from typing import Optional
 from pathlib import Path
 from datetime import datetime
 from .models import BackupFile
-from ..core.exceptions import DropboxError
-from ..core.logger import get_logger
+from core.exceptions import DropboxError
+from core.logger import get_logger
 
 
 class DropboxDownloader:

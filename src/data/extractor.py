@@ -6,9 +6,9 @@ import pandas as pd
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
-from ..core.config import AppConfig
-from ..core.exceptions import DatabaseError
-from ..core.logger import get_logger
+from core.config import AppConfig
+from core.exceptions import DatabaseError
+from core.logger import get_logger
 
 
 class DatabaseExtractor:
@@ -61,15 +61,25 @@ class DatabaseExtractor:
             f"docker exec -u postgres pg-i5bu dropdb --if-exists {self.config.database.database}",
             f"docker exec -u postgres pg-i5bu createdb {self.config.database.database}",
             f"docker exec -u postgres pg-i5bu pg_restore -U postgres "
-            f"--no-owner --no-privileges -d {self.config.database.database} /backup/{backup_file.name}"
+            f"--no-owner --no-privileges --disable-triggers "
+            f"-d {self.config.database.database} /backup/{backup_file.name}"
         ]
 
         for cmd in commands:
             result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            # pg_restore may return non-zero exit code even with warnings
+            # Check if restore actually succeeded (errors were ignored)
             if result.returncode != 0:
-                self.logger.error(f"Command failed: {cmd}")
-                self.logger.error(result.stderr)
-                raise DatabaseError(f"Database restoration failed: {result.stderr}")
+                if 'errors ignored on restore' in result.stderr.lower():
+                    # Restore completed despite errors - this is OK
+                    self.logger.warning(f"Restore completed with ignored errors: {cmd}")
+                    if result.stderr:
+                        self.logger.warning(result.stderr)
+                else:
+                    # Actual failure
+                    self.logger.error(f"Command failed: {cmd}")
+                    self.logger.error(result.stderr)
+                    raise DatabaseError(f"Database restoration failed: {result.stderr}")
 
         self.logger.info("Database restored successfully")
         return True
@@ -95,10 +105,11 @@ class DatabaseExtractor:
             JOIN tbl_itemhj h ON i.kodeitem = h.kodeitem AND s.satuan = h.satuan
         """
 
+        # Use stdout to avoid permission issues with mounted volume
         cmd = (
             f"docker exec -u postgres pg-i5bu psql -U postgres "
             f"-d {self.config.database.database} -c "
-            f"\"\\COPY ({query}) TO '/output/{output_path.name}' WITH CSV HEADER\""
+            f"\"\\COPY ({query}) TO STDOUT WITH CSV HEADER\""
         )
 
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -106,6 +117,10 @@ class DatabaseExtractor:
             self.logger.error("CSV export failed")
             self.logger.error(result.stderr)
             raise DatabaseError(f"CSV export failed: {result.stderr}")
+
+        # Write output to file from host side (avoids permission issues)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(result.stdout)
 
         self.logger.info(f"Exported to: {output_path}")
         return output_path

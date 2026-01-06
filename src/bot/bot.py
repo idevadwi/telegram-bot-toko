@@ -7,9 +7,9 @@ from telegram.ext import (
     ApplicationBuilder, MessageHandler, CommandHandler, ContextTypes, filters
 )
 
-from ..core.config import load_config
-from ..core.logger import setup_logging, get_logger
-from ..core.exceptions import TelegramBotError
+from core.config import load_config
+from core.logger import setup_logging, get_logger
+from core.exceptions import TelegramBotError
 
 # Load configuration
 config = load_config()
