@@ -21,7 +21,7 @@ This guide provides step-by-step instructions for deploying the Telegram Bot Tok
 
 ### VPS Requirements
 
-- **Operating System**: Ubuntu 20.04 LTS or 22.04 LTS (recommended)
+- **Operating System**: Ubuntu 20.04 LTS, 22.04 LTS, or 24.04 LTS (recommended)
 - **RAM**: Minimum 2GB (4GB recommended)
 - **Storage**: Minimum 20GB
 - **CPU**: 2 cores minimum
@@ -86,6 +86,7 @@ python3 --version
 ```bash
 # Create user
 adduser telegrambot
+#pass: telegrambot
 
 # Add user to sudo and docker groups
 usermod -aG sudo telegrambot
@@ -148,7 +149,7 @@ pip3 install -r requirements.txt
 
 # Or use virtual environment (recommended)
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate # Activate virtual environment
 pip install -r requirements.txt
 ```
 
@@ -274,7 +275,18 @@ ls -la config/.env
 
 ## Database Setup
 
-### Step 1: Start PostgreSQL Container
+### Step 1: Set Directory Permissions
+
+```bash
+# Fix permissions for data directories (required for PostgreSQL container)
+sudo chown -R 1000:1000 /home/telegrambot/telegram-bot-toko/data/exports
+sudo chmod -R 755 /home/telegrambot/telegram-bot-toko/data/exports
+
+# Verify permissions
+ls -la /home/telegrambot/telegram-bot-toko/data/exports
+```
+
+### Step 2: Start PostgreSQL Container
 
 ```bash
 # Start Docker Compose
@@ -284,7 +296,7 @@ docker-compose -f docker/docker-compose.yml up -d
 docker ps | grep pg-i5bu
 ```
 
-### Step 2: Verify Database Connection
+### Step 3: Verify Database Connection
 
 ```bash
 # Check database logs
@@ -308,8 +320,8 @@ docker exec -u postgres pg-i5bu psql -U postgres -c "SELECT version();"
 ### Step 1: Test Sync Process
 
 ```bash
-# Run sync process
-python scripts/sync.py
+# Run sync process (must run as module from project root)
+python -m scripts.sync
 
 # Check output
 ls -lh data/backups/
@@ -376,10 +388,10 @@ Add the following entries to your crontab:
 # ========================================
 
 # Sync at 10:00 AM daily (morning update)
-0 10 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python scripts/sync.py >> logs/sync_10am.log 2>&1
+0 10 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync >> logs/sync_10am.log 2>&1
 
 # Sync at 7:00 PM daily (evening update)
-0 19 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python scripts/sync.py >> logs/sync_7pm.log 2>&1
+0 19 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync >> logs/sync_7pm.log 2>&1
 
 # Health check every hour
 0 * * * * cd /home/telegrambot/telegram-bot-toko && ./scripts/health_check.sh >> logs/health.log 2>&1
@@ -406,7 +418,7 @@ systemctl status cron
 ```bash
 # Test sync manually (simulating cron)
 cd /home/telegrambot/telegram-bot-toko
-/home/telegrambot/telegram-bot-toko/venv/bin/python scripts/sync.py >> logs/sync_test.log 2>&1
+/home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync >> logs/sync_test.log 2>&1
 
 # Check the log
 cat logs/sync_test.log
@@ -755,7 +767,7 @@ chmod +x scripts/backup_config.sh
 
 4. Test cron command manually:
    ```bash
-   cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python scripts/sync.py
+   cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync
    ```
 
 ### Issue: High Disk Usage
@@ -835,8 +847,8 @@ chmod +x scripts/backup_config.sh
 # Manual backup
 ./scripts/backup.sh
 
-# Run sync
-python scripts/sync.py
+# Run sync (must run as module from project root)
+python -m scripts.sync
 
 # Run tests
 pytest tests/ -v

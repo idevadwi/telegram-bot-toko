@@ -6,6 +6,8 @@ This is a condensed version of the full deployment guide for quick reference. Fo
 
 ### 1. Server Setup (5 minutes)
 
+**Note**: This guide has been tested on Ubuntu 20.04, 22.04, and 24.04 LTS.
+
 ```bash
 # Connect to VPS
 ssh root@your-vps-ip
@@ -39,8 +41,10 @@ cd telegram-bot-toko
 # Create directories
 mkdir -p data/backups data/exports logs backups/manual
 
-# Install Python dependencies
-pip3 install -r requirements.txt
+# Install Python dependencies (requires virtual environment on newer Ubuntu)
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 
 # Make scripts executable
 chmod +x scripts/*.sh
@@ -98,8 +102,8 @@ docker ps | grep pg-i5bu
 ### 5. Test System (2 minutes)
 
 ```bash
-# Run sync process
-python scripts/sync.py
+# Run sync process (must run as module from project root)
+python -m scripts.sync
 
 # Run health check
 ./scripts/health_check.sh
@@ -129,8 +133,8 @@ crontab -e
 
 ```bash
 # Sync at 10:00 AM and 7:00 PM daily
-0 10 * * * cd /home/telegrambot/telegram-bot-toko && python scripts/sync.py >> logs/sync_10am.log 2>&1
-0 19 * * * cd /home/telegrambot/telegram-bot-toko && python scripts/sync.py >> logs/sync_7pm.log 2>&1
+0 10 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync >> logs/sync_10am.log 2>&1
+0 19 * * * cd /home/telegrambot/telegram-bot-toko && /home/telegrambot/telegram-bot-toko/venv/bin/python -m scripts.sync >> logs/sync_7pm.log 2>&1
 
 # Health check every hour
 0 * * * * cd /home/telegrambot/telegram-bot-toko && ./scripts/health_check.sh >> logs/health.log 2>&1
@@ -172,8 +176,8 @@ crontab -e
 # Manual backup
 ./scripts/backup.sh
 
-# Run sync
-python scripts/sync.py
+# Run sync (must run as module from project root)
+python -m scripts.sync
 
 # View logs
 tail -f logs/sync_10am.log
@@ -207,7 +211,7 @@ nohup python -m src.bot.bot > logs/bot.log 2>&1 &
 cat logs/sync_10am.log
 
 # Test manually
-python scripts/sync.py
+python -m scripts.sync
 
 # Check disk space
 df -h

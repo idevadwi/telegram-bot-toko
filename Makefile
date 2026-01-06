@@ -16,7 +16,7 @@ run: ## Run the bot
 	python -m src.bot.bot
 
 sync: ## Run sync process
-	python scripts/sync.py
+	python -m scripts.sync
 
 bot: ## Run bot in background
 	nohup python -m src.bot.bot > logs/bot.log 2>&1 &

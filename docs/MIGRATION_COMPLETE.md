@@ -137,7 +137,7 @@ make run
 ### 3. Run Sync Process
 ```bash
 # Manual sync
-python scripts/sync.py
+python -m scripts.sync
 
 # Or use make
 make sync
@@ -161,8 +161,8 @@ make docker-down
 crontab -e
 
 # Sync at 10:00 AM and 7:00 PM daily
-0 10 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_10am.log 2>&1
-0 19 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_7pm.log 2>&1
+0 10 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_10am.log 2>&1
+0 19 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_7pm.log 2>&1
 
 # Health check every hour
 0 * * * * cd /path/to/telegram-bot-toko && ./scripts/health_check.sh >> logs/health.log 2>&1

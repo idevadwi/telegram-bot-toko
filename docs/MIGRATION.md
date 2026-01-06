@@ -899,7 +899,7 @@ run: ## Run the bot
 	python -m src.bot.bot
 
 sync: ## Run sync process
-	python scripts/sync.py
+	python -m scripts.sync
 
 bot: ## Run bot in background
 	nohup python -m src.bot.bot > logs/bot.log 2>&1 &
@@ -929,8 +929,8 @@ crontab -e
 
 # Add the following entries
 # Sync at 10:00 AM and 7:00 PM daily
-0 10 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_10am.log 2>&1
-0 19 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_7pm.log 2>&1
+0 10 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_10am.log 2>&1
+0 19 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_7pm.log 2>&1
 
 # Restart bot if it crashes (every 5 minutes)
 */5 * * * * cd /path/to/telegram-bot-toko && pgrep -f "python -m src.bot.bot" > /dev/null || python -m src.bot.bot >> logs/bot.log 2>&1 &

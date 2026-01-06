@@ -136,14 +136,14 @@ If you have an existing deployment using the old shell scripts:
 
 1. **Update Code**: Pull the latest changes from the repository
 2. **Update Environment**: Ensure [`config/.env`](../config/.env) is properly configured
-3. **Test Sync**: Run `python scripts/sync.py` to test the new sync process
+3. **Test Sync**: Run `python -m scripts.sync` to test the new sync process
 4. **Update Cron Jobs**: Replace shell script references with Python script:
    ```bash
    # Old
    0 10 * * * /path/to/scripts/download.sh
    
    # New
-   0 10 * * * cd /path/to && python scripts/sync.py
+   0 10 * * * cd /path/to && python -m scripts.sync
    ```
 
 ### For New Deployments

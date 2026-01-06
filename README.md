@@ -201,7 +201,7 @@ Run the health check script:
 Run the complete sync process (download, restore, export):
 
 ```bash
-python scripts/sync.py
+python -m scripts.sync
 ```
 
 Or use Make:
@@ -372,10 +372,10 @@ Add the following entries:
 
 ```bash
 # Sync at 10:00 AM daily
-0 10 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_10am.log 2>&1
+0 10 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_10am.log 2>&1
 
 # Sync at 7:00 PM daily
-0 19 * * * cd /path/to/telegram-bot-toko && python scripts/sync.py >> logs/sync_7pm.log 2>&1
+0 19 * * * cd /path/to/telegram-bot-toko && python -m scripts.sync >> logs/sync_7pm.log 2>&1
 
 # Health check every hour
 0 * * * * cd /path/to/telegram-bot-toko && ./scripts/health_check.sh >> logs/health.log 2>&1
