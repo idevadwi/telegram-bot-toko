@@ -1,6 +1,7 @@
 """
 Database extractor module
 """
+import os
 import subprocess
 import pandas as pd
 import psycopg2
@@ -63,23 +64,34 @@ class DatabaseExtractor:
         """
         self.logger.info(f"Restoring database from: {backup_file}")
 
-        # Build PostgreSQL connection string
+        # Build PostgreSQL connection string and parameters
         pg_conn = (
             f"postgresql://{self.config.database.user}:{self.config.database.password}"
             f"@{self.config.database.host}:{self.config.database.port}"
             f"/{self.config.database.database}"
         )
 
+        # Connection parameters for pg commands
+        pg_params = (
+            f"-h {self.config.database.host} "
+            f"-p {self.config.database.port} "
+            f"-U {self.config.database.user}"
+        )
+
+        # Set PGPASSWORD environment variable
+        env = os.environ.copy()
+        env['PGPASSWORD'] = self.config.database.password
+
         commands = [
-            f"dropdb --if-exists {self.config.database.database}",
-            f"createdb {self.config.database.database}",
-            f"pg_restore -d {pg_conn} "
-            f"--no-owner --no-privileges --disable-triggers "
-            f"{backup_file}"
+            (f"dropdb {pg_params} --if-exists {self.config.database.database}", env),
+            (f"createdb {pg_params} {self.config.database.database}", env),
+            (f"pg_restore -d {pg_conn} "
+             f"--no-owner --no-privileges --disable-triggers "
+             f"{backup_file}", env)
         ]
 
-        for cmd in commands:
-            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        for cmd, cmd_env in commands:
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True, env=cmd_env)
             # pg_restore may return non-zero exit code even with warnings
             # Check if restore actually succeeded (errors were ignored)
             if result.returncode != 0:
