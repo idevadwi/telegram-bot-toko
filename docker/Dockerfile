@@ -14,12 +14,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY src/ ./src/
 COPY config/ ./config/
+COPY scripts/ ./scripts/
 
 # Create necessary directories
 RUN mkdir -p data/backups data/exports logs
 
-# Set Python path
-ENV PYTHONPATH=/app
+# Set Python path to include both /app and /app/src
+ENV PYTHONPATH=/app:/app/src
 
 # Run the bot
 CMD ["python", "-m", "src.bot.bot"]

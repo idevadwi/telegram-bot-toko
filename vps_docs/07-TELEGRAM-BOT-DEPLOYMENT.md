@@ -271,8 +271,6 @@ nano docker-compose.yml
 Replace with this VPS-optimized configuration:
 
 ```yaml
-version: '3.8'
-
 services:
   bot:
     build:
@@ -286,8 +284,6 @@ services:
       - ../logs:/app/logs
     networks:
       - db-network
-    depends_on:
-      - postgresql-server
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)'"]
@@ -306,6 +302,7 @@ services:
 networks:
   db-network:
     external: true
+    name: db-network
 ```
 
 **Changes made**:
@@ -323,12 +320,14 @@ networks:
 # Navigate to docker directory
 cd ~/apps/telegram-bot-toko/docker
 
-# Build the bot image
+# Build the bot image (includes scripts directory with sync script)
 docker compose build
 
 # Verify image was built
 docker images | grep telegram-bot-toko
 ```
+
+**Note**: The Dockerfile now includes the `scripts/` directory, which contains the sync script. This allows running sync commands inside the Docker container where all Python dependencies are installed. The sync script uses direct database connections via psycopg2 instead of docker exec commands, making it work properly inside the container.
 
 ---
 
@@ -390,17 +389,19 @@ rsync -avz /path/to/your/backup.i5bu deploy@YOUR_VPS_IP:~/apps/telegram-bot-toko
 # Navigate to project directory
 cd ~/apps/telegram-bot-toko
 
-# Run sync script (this runs outside Docker for initial setup)
-python -m scripts.sync
+# Run sync script inside Docker container (has all dependencies installed)
+docker exec -it telegram-bot-toko python -m scripts.sync
 ```
 
 This will:
 1. Download latest backup from Dropbox (if configured)
 2. Validate the backup file
-3. Restore to PostgreSQL database
-4. Export product data to CSV
+3. Restore to PostgreSQL database (via direct psycopg2 connection)
+4. Export product data to CSV (via psycopg2 and pandas)
 5. Validate CSV file
 6. Clean up old files
+
+**Note**: The sync script now uses direct database connections via psycopg2 instead of docker exec commands, allowing it to run properly inside the Docker container. The bot container connects to PostgreSQL via the `db-network`.
 
 ---
 
@@ -451,8 +452,8 @@ cd "$PROJECT_DIR" || exit 1
 
 echo "[$DATE] Starting sync..." >> "$LOG_FILE"
 
-# Run sync
-python -m scripts.sync >> "$LOG_FILE" 2>&1
+# Run sync inside Docker container (has all dependencies installed)
+docker exec telegram-bot-toko python -m scripts.sync >> "$LOG_FILE" 2>&1
 
 # Check if sync was successful
 if [ $? -eq 0 ]; then
@@ -850,7 +851,7 @@ ls -la ~/apps/telegram-bot-toko/data/exports/
 
 # Run sync manually to generate CSV
 cd ~/apps/telegram-bot-toko
-python -m scripts.sync
+docker exec -it telegram-bot-toko python -m scripts.sync
 
 # Check sync logs for errors
 tail -50 ~/logs/sync.log
@@ -858,6 +859,75 @@ tail -50 ~/logs/sync.log
 # Verify CSV format
 head -5 ~/apps/telegram-bot-toko/data/exports/*.csv
 ```
+
+---
+
+### Issue 6: ModuleNotFoundError When Running Sync
+
+**Symptoms**: Running `python -m scripts.sync` on VPS host fails with:
+```
+ModuleNotFoundError: No module named 'dotenv'
+```
+
+**Root Cause**: The sync script is being run directly on the VPS host system where Python dependencies (like `python-dotenv`) aren't installed. The Docker container has all dependencies installed, but the scripts directory wasn't copied into the container.
+
+**Solutions**:
+
+```bash
+# 1. Verify scripts directory is in Docker container
+docker exec telegram-bot-toko ls -la /app/scripts/
+
+# If scripts directory doesn't exist, rebuild the container:
+cd ~/apps/telegram-bot-toko/docker
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+
+# 2. Run sync inside Docker container (recommended)
+docker exec -it telegram-bot-toko python -m scripts.sync
+
+# 3. Alternative: Install dependencies on host (not recommended)
+cd ~/apps/telegram-bot-toko
+pip install -r requirements.txt
+python -m scripts.sync
+```
+
+**Prevention**: Always run sync commands inside the Docker container to ensure consistent environment and avoid dependency issues.
+
+---
+
+### Issue 7: Docker Command Not Found Inside Container
+
+**Symptoms**: Running sync inside Docker container fails with:
+```
+FileNotFoundError: [Errno 2] No such file or directory: 'docker'
+```
+
+**Root Cause**: The sync script was trying to run `docker exec` commands from inside the Docker container, but Docker isn't installed inside containers. The bot container should connect directly to PostgreSQL via the `db-network` instead.
+
+**Solution**: The code has been updated to use direct database connections via psycopg2 instead of docker exec commands. Ensure you have the latest version of the code:
+
+```bash
+# Pull latest changes
+cd ~/apps/telegram-bot-toko
+git pull origin main
+
+# Rebuild container with updated code
+cd docker
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+
+# Test sync
+docker exec -it telegram-bot-toko python -m scripts.sync
+```
+
+**Technical Details**:
+- `ensure_database_running()` now uses psycopg2.connect() to test database connectivity
+- `restore_database()` uses dropdb/createdb/pg_restore directly (requires postgresql-client in container)
+- `export_to_csv()` uses psycopg2 and pandas read_sql_query directly
+
+**Note**: The Dockerfile already includes `postgresql-client` which provides the necessary PostgreSQL command-line tools.
 
 ---
 
@@ -1023,7 +1093,7 @@ docker compose build --no-cache
 docker compose up -d
 
 # Test all functionality
-python -m scripts.sync
+docker exec -it telegram-bot-toko python -m scripts.sync
 ```
 
 ---

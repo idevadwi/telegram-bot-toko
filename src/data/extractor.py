@@ -3,6 +3,7 @@ Database extractor module
 """
 import subprocess
 import pandas as pd
+import psycopg2
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -26,20 +27,25 @@ class DatabaseExtractor:
 
     def ensure_database_running(self) -> bool:
         """
-        Ensure PostgreSQL container is running
+        Ensure PostgreSQL database is accessible
 
         Returns:
-            bool: True if database is running
+            bool: True if database is running and accessible
         """
         try:
-            result = subprocess.run(
-                ['docker', 'ps', '--format', '{{.Names}}'],
-                capture_output=True,
-                text=True,
-                check=True
+            conn = psycopg2.connect(
+                host=self.config.database.host,
+                port=self.config.database.port,
+                database=self.config.database.database,
+                user=self.config.database.user,
+                password=self.config.database.password,
+                connect_timeout=5
             )
-            return 'pg-i5bu' in result.stdout
-        except subprocess.CalledProcessError:
+            conn.close()
+            self.logger.info("Database connection successful")
+            return True
+        except psycopg2.OperationalError as e:
+            self.logger.error(f"Database connection failed: {e}")
             return False
 
     def restore_database(self, backup_file: Path) -> bool:
@@ -57,12 +63,19 @@ class DatabaseExtractor:
         """
         self.logger.info(f"Restoring database from: {backup_file}")
 
+        # Build PostgreSQL connection string
+        pg_conn = (
+            f"postgresql://{self.config.database.user}:{self.config.database.password}"
+            f"@{self.config.database.host}:{self.config.database.port}"
+            f"/{self.config.database.database}"
+        )
+
         commands = [
-            f"docker exec -u postgres pg-i5bu dropdb --if-exists {self.config.database.database}",
-            f"docker exec -u postgres pg-i5bu createdb {self.config.database.database}",
-            f"docker exec -u postgres pg-i5bu pg_restore -U postgres "
+            f"dropdb --if-exists {self.config.database.database}",
+            f"createdb {self.config.database.database}",
+            f"pg_restore -d {pg_conn} "
             f"--no-owner --no-privileges --disable-triggers "
-            f"-d {self.config.database.database} /backup/{backup_file.name}"
+            f"{backup_file}"
         ]
 
         for cmd in commands:
@@ -105,25 +118,31 @@ class DatabaseExtractor:
             JOIN tbl_itemhj h ON i.kodeitem = h.kodeitem AND s.satuan = h.satuan
         """
 
-        # Use stdout to avoid permission issues with mounted volume
-        cmd = (
-            f"docker exec -u postgres pg-i5bu psql -U postgres "
-            f"-d {self.config.database.database} -c "
-            f"\"\\COPY ({query}) TO STDOUT WITH CSV HEADER\""
-        )
-
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
+        try:
+            # Connect to database directly
+            conn = psycopg2.connect(
+                host=self.config.database.host,
+                port=self.config.database.port,
+                database=self.config.database.database,
+                user=self.config.database.user,
+                password=self.config.database.password
+            )
+            
+            # Execute query and fetch results
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            # Write to CSV
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(output_path, index=False)
+            
+            self.logger.info(f"Exported to: {output_path}")
+            return output_path
+            
+        except Exception as e:
             self.logger.error("CSV export failed")
-            self.logger.error(result.stderr)
-            raise DatabaseError(f"CSV export failed: {result.stderr}")
-
-        # Write output to file from host side (avoids permission issues)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(result.stdout)
-
-        self.logger.info(f"Exported to: {output_path}")
-        return output_path
+            self.logger.error(str(e))
+            raise DatabaseError(f"CSV export failed: {str(e)}")
 
     def load_csv(self, csv_path: Path) -> pd.DataFrame:
         """
