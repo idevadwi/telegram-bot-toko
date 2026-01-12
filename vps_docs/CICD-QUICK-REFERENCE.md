@@ -91,7 +91,7 @@ ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko && git log -1"
 ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko/docker && docker compose ps"
 
 # View logs
-ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko/docker && docker compose logs --tail=50 telegram-bot-toko"
+ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko/docker && docker compose logs --tail=50 bot"
 ```
 
 ### Real-Time Log Monitoring
@@ -103,7 +103,7 @@ ssh deploy@your-vps-ip
 cd ~/apps/telegram-bot-toko/docker
 
 # Follow logs
-docker compose logs -f telegram-bot-toko
+docker compose logs -f bot
 ```
 
 ---
@@ -127,7 +127,7 @@ docker compose build --no-cache
 docker compose up -d
 
 # Verify
-docker compose logs -f telegram-bot-toko
+docker compose logs -f bot
 ```
 
 ### Rollback via Git Revert (Recommended)
@@ -185,7 +185,7 @@ docker compose logs telegram-bot-toko
 cat ../config/.env
 
 # Restart container
-docker compose restart telegram-bot-toko
+docker compose restart bot
 ```
 
 ### Issue: Environment Variables Not Updating
@@ -202,7 +202,7 @@ nano .env
 
 # Restart
 cd ../docker
-docker compose restart telegram-bot-toko
+docker compose restart bot
 ```
 
 ---
@@ -293,21 +293,21 @@ docker compose up -d
 ### View Container Stats
 ```bash
 ssh deploy@your-vps-ip
-docker stats telegram-bot-toko
+docker stats bot
 ```
 
 ### Check Database Connection
 ```bash
 ssh deploy@your-vps-ip
 cd ~/apps/telegram-bot-toko/docker
-docker compose exec telegram-bot-toko python -c "from src.core.config import Config; print('DB:', Config.DB_HOST)"
+docker compose exec bot python -c "from src.core.config import Config; print('DB:', Config.DB_HOST)"
 ```
 
 ### Manual Sync Data
 ```bash
 ssh deploy@your-vps-ip
 cd ~/apps/telegram-bot-toko/docker
-docker compose exec telegram-bot-toko python -m scripts.sync
+docker compose exec bot python -m scripts.sync
 ```
 
 ### Restart PostgreSQL

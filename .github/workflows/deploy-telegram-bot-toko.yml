@@ -108,7 +108,7 @@ jobs:
             echo "=========================================="
             echo "Deployment completed! Showing recent logs:"
             echo "=========================================="
-            docker compose logs --tail=50 telegram-bot-toko
+            docker compose logs --tail=50 bot
 
             echo "=========================================="
             echo "Deployment successful!"
@@ -155,7 +155,7 @@ jobs:
             echo "=========================================="
 
             cd ~/apps/telegram-bot-toko/docker
-            docker compose exec -T telegram-bot-toko python -m scripts.sync
+            docker compose exec -T bot python -m scripts.sync
 
             echo "=========================================="
             echo "Sync completed successfully!"
@@ -194,7 +194,7 @@ jobs:
             echo "=========================================="
 
             cd ~/apps/telegram-bot-toko/docker
-            docker compose restart telegram-bot-toko
+            docker compose restart bot
 
             # Wait for container to start
             sleep 3
@@ -202,7 +202,7 @@ jobs:
             echo "=========================================="
             echo "Showing recent logs:"
             echo "=========================================="
-            docker compose logs --tail=30 telegram-bot-toko
+            docker compose logs --tail=30 bot
 
             echo "=========================================="
             echo "Container restarted successfully!"

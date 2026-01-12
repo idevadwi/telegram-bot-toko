@@ -318,7 +318,7 @@ After setting up all secrets and creating the workflow file:
    docker compose ps  # Should show "Up" status
 
    # Check logs
-   docker compose logs --tail=50 telegram-bot-toko
+   docker compose logs --tail=50 bot
    ```
 
 4. **Test bot on Telegram:**
@@ -351,7 +351,7 @@ Test the manual sync trigger:
    ```bash
    ssh deploy@your-vps-ip
    cd ~/apps/telegram-bot-toko/docker
-   docker compose logs --tail=100 telegram-bot-toko | grep -i sync
+   docker compose logs --tail=100 bot | grep -i sync
    ```
 
 ---
@@ -504,7 +504,7 @@ Container telegram-bot-toko exited with code 1
    ```bash
    ssh deploy@your-vps-ip
    cd ~/apps/telegram-bot-toko/docker
-   docker compose logs telegram-bot-toko
+   docker compose logs bot
    ```
 
 2. **Common causes and fixes:**
@@ -561,7 +561,7 @@ Bot still using old configuration after deployment.
 
    # Restart container
    cd docker
-   docker compose restart telegram-bot-toko
+   docker compose restart bot
    ```
 
 3. **Verify secrets in GitHub:**
@@ -746,7 +746,7 @@ docker compose build --no-cache
 docker compose up -d
 
 # Verify
-docker compose logs -f telegram-bot-toko
+docker compose logs -f bot
 ```
 
 ---
@@ -831,7 +831,7 @@ Automatically sync data from Dropbox daily:
    Add:
    ```
    # Sync data from Dropbox every day at 3 AM
-   0 3 * * * cd ~/apps/telegram-bot-toko/docker && docker compose exec -T telegram-bot-toko python -m scripts.sync >> ~/logs/sync.log 2>&1
+   0 3 * * * cd ~/apps/telegram-bot-toko/docker && docker compose exec -T bot python -m scripts.sync >> ~/logs/sync.log 2>&1
    ```
 
 ---
@@ -947,7 +947,7 @@ ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko && git log -1"
 
 **View container logs:**
 ```bash
-ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko/docker && docker compose logs --tail=50 telegram-bot-toko"
+ssh deploy@your-vps-ip "cd ~/apps/telegram-bot-toko/docker && docker compose logs --tail=50 bot"
 ```
 
 **Manual rollback:**
