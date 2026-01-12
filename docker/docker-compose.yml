@@ -1,27 +1,4 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: pg-i5bu
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: i5bu
-    volumes:
-      - ../data/backups:/backup:ro
-      - ../data/exports:/output
-      - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - bot-network
-
   bot:
     build:
       context: ..
@@ -32,16 +9,24 @@ services:
     volumes:
       - ../data:/app/data
       - ../logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
     networks:
-      - bot-network
-
-volumes:
-  pgdata:
+      - db-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import sys; sys.exit(0)'"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
 
 networks:
-  bot-network:
-    driver: bridge
+  db-network:
+    external: true
+    name: db-network
