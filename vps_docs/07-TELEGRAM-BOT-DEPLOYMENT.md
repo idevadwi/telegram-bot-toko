@@ -486,10 +486,10 @@ crontab -e
 Add these entries:
 
 ```bash
-# Sync at 10:00 AM daily
+# Toko Sync at 10:00 AM daily
 0 10 * * * /home/deploy/scripts/sync-telegram-bot.sh >> /home/deploy/logs/cron_sync.log 2>&1
 
-# Sync at 7:00 PM daily
+# Toko Sync at 7:00 PM daily
 0 19 * * * /home/deploy/scripts/sync-telegram-bot.sh >> /home/deploy/logs/cron_sync.log 2>&1
 
 # Health check every hour

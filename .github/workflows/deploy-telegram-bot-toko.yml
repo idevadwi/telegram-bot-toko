@@ -1,0 +1,216 @@
+name: Deploy Telegram Bot Toko
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - sync
+          - restart
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.inputs.action == 'deploy'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USERNAME: ${{ secrets.VPS_USERNAME }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DROPBOX_APP_KEY: ${{ secrets.DROPBOX_APP_KEY }}
+          DROPBOX_APP_SECRET: ${{ secrets.DROPBOX_APP_SECRET }}
+          DROPBOX_REFRESH_TOKEN: ${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          ALLOWED_USERS: ${{ secrets.ALLOWED_USERS }}
+        run: |
+          ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            set -e
+            echo "=========================================="
+            echo "Starting deployment process..."
+            echo "=========================================="
+
+            # Navigate to project directory
+            cd ~/apps/telegram-bot-toko
+
+            # Pull latest code
+            echo "Pulling latest code from GitHub..."
+            git pull origin main
+
+            # Update .env file with secrets from GitHub
+            echo "Updating environment variables..."
+            cat > config/.env << EOF
+          # Dropbox API Integration
+          DROPBOX_APP_KEY=${{ secrets.DROPBOX_APP_KEY }}
+          DROPBOX_APP_SECRET=${{ secrets.DROPBOX_APP_SECRET }}
+          DROPBOX_REFRESH_TOKEN=${{ secrets.DROPBOX_REFRESH_TOKEN }}
+          DROPBOX_FOLDER_PATH=/IPOS
+
+          # Telegram Bot
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ALLOWED_USERS=${{ secrets.ALLOWED_USERS }}
+
+          # Database Configuration
+          DB_HOST=postgresql-server
+          DB_PORT=5432
+          DB_NAME=i5bu
+          DB_USER=postgres
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+
+          # Application Settings
+          MAX_CSV_FILES=5
+          SEARCH_RESULTS_LIMIT=10
+
+          # Logging
+          LOG_LEVEL=INFO
+          LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+          EOF
+
+            # Navigate to docker directory
+            cd docker
+
+            # Rebuild Docker image
+            echo "Rebuilding Docker image..."
+            docker compose build --no-cache
+
+            # Restart containers
+            echo "Restarting containers..."
+            docker compose up -d
+
+            # Wait for container to start
+            echo "Waiting for container to start..."
+            sleep 5
+
+            # Show logs for verification
+            echo "=========================================="
+            echo "Deployment completed! Showing recent logs:"
+            echo "=========================================="
+            docker compose logs --tail=50 telegram-bot-toko
+
+            echo "=========================================="
+            echo "Deployment successful!"
+            echo "=========================================="
+          ENDSSH
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "📦 Latest code deployed to VPS"
+          echo "🐳 Docker container rebuilt and restarted"
+          echo "🤖 Bot should be running on Telegram"
+
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the logs above for error details"
+          echo "You may need to SSH to the VPS and check manually"
+
+  sync:
+    name: Sync Data from Dropbox
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'sync'
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run sync on VPS
+        run: |
+          ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            set -e
+            echo "=========================================="
+            echo "Starting data sync from Dropbox..."
+            echo "=========================================="
+
+            cd ~/apps/telegram-bot-toko/docker
+            docker compose exec -T telegram-bot-toko python -m scripts.sync
+
+            echo "=========================================="
+            echo "Sync completed successfully!"
+            echo "=========================================="
+          ENDSSH
+
+      - name: Sync summary
+        if: success()
+        run: |
+          echo "✅ Data sync completed successfully!"
+          echo "📥 Latest data downloaded from Dropbox"
+          echo "💾 Database updated with new product information"
+
+  restart:
+    name: Restart Bot Container
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'restart'
+
+    steps:
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Restart container on VPS
+        run: |
+          ssh ${{ secrets.VPS_USERNAME }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            set -e
+            echo "=========================================="
+            echo "Restarting bot container..."
+            echo "=========================================="
+
+            cd ~/apps/telegram-bot-toko/docker
+            docker compose restart telegram-bot-toko
+
+            # Wait for container to start
+            sleep 3
+
+            echo "=========================================="
+            echo "Showing recent logs:"
+            echo "=========================================="
+            docker compose logs --tail=30 telegram-bot-toko
+
+            echo "=========================================="
+            echo "Container restarted successfully!"
+            echo "=========================================="
+          ENDSSH
+
+      - name: Restart summary
+        if: success()
+        run: |
+          echo "✅ Container restarted successfully!"
+          echo "🔄 Bot should be back online on Telegram"
